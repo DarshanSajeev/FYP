@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LGI Triage Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --nhs-blue:       #005eb8;
+      --nhs-dark-blue:  #003087;
+      --nhs-green:      #009639;
+      --nhs-red:        #da291c;
+      --nhs-orange:     #ed8b00;
+      --nhs-warm-grey:  #768692;
+      --nhs-pale-grey:  #f0f4f5;
+      --chat-width:     680px;
+    }
+
+    body {
+      font-family: 'Noto Sans', sans-serif;
+      background: var(--nhs-pale-grey);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--nhs-blue);
+      color: white;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      height: 64px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nhs-logo {
+      background: white;
+      color: var(--nhs-blue);
+      font-weight: 700;
+      font-size: 20px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      letter-spacing: -0.5px;
+      flex-shrink: 0;
+    }
+
+    header h1 { font-size: 17px; font-weight: 600; }
+    header .subtitle { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+
+    .header-warning {
+      margin-left: auto;
+      background: var(--nhs-red);
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 4px;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    /* ── Emergency Banner ── */
+    .emergency-banner {
+      background: var(--nhs-red);
+      color: white;
+      text-align: center;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px 120px;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: var(--chat-width);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .info-card {
+      background: white;
+      border-left: 4px solid var(--nhs-blue);
+      padding: 16px 20px;
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .info-card strong { color: var(--nhs-dark-blue); }
+
+    /* ── Messages ── */
+    .messages { display: flex; flex-direction: column; gap: 10px; }
+
+    .msg {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 15px;
+      line-height: 1.55;
+      animation: fadeIn 0.25s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.assistant {
+      background: white;
+      border: 1px solid #d8e0e5;
+      border-bottom-left-radius: 2px;
+      align-self: flex-start;
+      color: #1a1a1a;
+    }
+
+    .msg.user {
+      background: var(--nhs-blue);
+      color: white;
+      border-bottom-right-radius: 2px;
+      align-self: flex-end;
+    }
+
+    .msg-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 5px;
+      opacity: 0.65;
+    }
+
+    .msg.assistant .msg-label { color: var(--nhs-blue); }
+    .msg.user .msg-label      { color: rgba(255,255,255,0.8); }
+
+    /* ── Typing indicator ── */
+    .typing {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 14px 16px;
+      background: white;
+      border: 1px solid #d8e0e5;
+      border-radius: 8px;
+      border-bottom-left-radius: 2px;
+      align-self: flex-start;
+      width: fit-content;
+    }
+
+    .typing span {
+      width: 7px; height: 7px;
+      background: var(--nhs-warm-grey);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30%           { transform: translateY(-6px); }
+    }
+
+    /* ── Result card ── */
+    .result-card {
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #d8e0e5;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .result-header { padding: 20px 24px; color: white; font-weight: 700; }
+    .result-header.Red    { background: var(--nhs-red); }
+    .result-header.Orange { background: var(--nhs-orange); }
+    .result-header.Yellow { background: #c5a800; }
+    .result-header.Green  { background: var(--nhs-green); }
+    .result-header.Blue   { background: var(--nhs-blue); }
+
+    .result-header .mts-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.25);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+
+    .result-header h2 { font-size: 22px; margin-bottom: 4px; }
+    .result-header p  { font-size: 14px; opacity: 0.9; }
+
+    .result-body { padding: 20px 24px; }
+
+    .result-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--nhs-pale-grey);
+      font-size: 14px;
+    }
+
+    .result-row:last-child { border-bottom: none; }
+
+    .result-row .label {
+      font-weight: 600;
+      color: var(--nhs-warm-grey);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      min-width: 110px;
+      padding-top: 1px;
+    }
+
+    .result-row .value { color: #1a1a1a; font-size: 15px; font-weight: 500; }
+
+    .demo-badge {
+      display: inline-block;
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffc107;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+
+    .result-disclaimer {
+      background: var(--nhs-pale-grey);
+      border-left: 3px solid var(--nhs-warm-grey);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #555;
+      margin-top: 16px;
+      border-radius: 0 4px 4px 0;
+    }
+
+    /* ── Input mode toggle ── */
+    .input-mode-toggle {
+      display: flex;
+      gap: 0;
+      background: #e9edf0;
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 10px;
+      width: fit-content;
+    }
+
+    .mode-btn {
+      background: none;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--nhs-warm-grey);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mode-btn.active {
+      background: white;
+      color: var(--nhs-blue);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+
+    .mode-btn svg { width: 15px; height: 15px; }
+
+    /* ── Voice panel ── */
+    .voice-panel {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 20px;
+      background: white;
+      border: 2px solid #d8e0e5;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .voice-panel.active { display: flex; }
+
+    .mic-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: none;
+      background: var(--nhs-blue);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .mic-btn:hover { background: var(--nhs-dark-blue); transform: scale(1.05); }
+
+    .mic-btn.recording {
+      background: var(--nhs-red);
+      animation: pulse 1.2s infinite;
+    }
+
+    .mic-btn svg { width: 32px; height: 32px; }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(218,41,28,0.4); }
+      50%       { box-shadow: 0 0 0 14px rgba(218,41,28,0); }
+    }
+
+    .voice-status {
+      font-size: 14px;
+      color: var(--nhs-warm-grey);
+      font-weight: 500;
+      min-height: 20px;
+    }
+
+    .voice-status.recording { color: var(--nhs-red); font-weight: 600; }
+
+    .voice-transcript {
+      width: 100%;
+      min-height: 60px;
+      background: var(--nhs-pale-grey);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: #333;
+      line-height: 1.5;
+      text-align: left;
+      font-style: italic;
+      display: none;
+    }
+
+    .voice-transcript.has-text {
+      display: block;
+      font-style: normal;
+    }
+
+    .voice-actions {
+      display: flex;
+      gap: 8px;
+      display: none;
+    }
+
+    .voice-actions.visible { display: flex; }
+
+    .btn-confirm {
+      background: var(--nhs-green);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.2s;
+    }
+
+    .btn-confirm:hover { opacity: 0.88; }
+
+    .btn-rerecord {
+      background: none;
+      border: 2px solid #adb5bd;
+      border-radius: 6px;
+      padding: 9px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #555;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .btn-rerecord:hover { border-color: var(--nhs-blue); color: var(--nhs-blue); }
+
+    .voice-unsupported {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      color: #856404;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      display: none;
+    }
+
+    /* ── Text input area ── */
+    .input-area {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: white;
+      border-top: 2px solid var(--nhs-blue);
+      padding: 12px 16px 14px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .input-inner {
+      width: 100%;
+      max-width: var(--chat-width);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Hide toggle after first message sent */
+    .input-inner.follow-up .input-mode-toggle,
+    .input-inner.follow-up .voice-panel { display: none !important; }
+    .input-inner.follow-up .text-row    { display: flex !important; }
+
+    .text-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    textarea {
+      flex: 1;
+      border: 2px solid #adb5bd;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-family: inherit;
+      font-size: 15px;
+      resize: none;
+      min-height: 48px;
+      max-height: 140px;
+      line-height: 1.5;
+      transition: border-color 0.2s;
+      color: #1a1a1a;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--nhs-blue);
+      box-shadow: 0 0 0 3px rgba(0,94,184,0.15);
+    }
+
+    textarea::placeholder { color: #9aa5af; }
+
+    button#sendBtn {
+      background: var(--nhs-blue);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0 20px;
+      height: 48px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    button#sendBtn:hover    { background: var(--nhs-dark-blue); }
+    button#sendBtn:disabled { background: #adb5bd; cursor: not-allowed; }
+
+    button#resetBtn {
+      background: none;
+      border: 2px solid #adb5bd;
+      border-radius: 6px;
+      padding: 0 14px;
+      height: 48px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    button#resetBtn:hover { border-color: var(--nhs-blue); color: var(--nhs-blue); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="nhs-logo">NHS</div>
+    <div>
+      <h1>Leeds General Infirmary — Triage Assistant</h1>
+      <div class="subtitle">AI-powered symptom checker · For guidance only</div>
+    </div>
+    <div class="header-warning">
+      If life-threatening<br>call <strong>999</strong>
+    </div>
+  </header>
+
+  <div class="emergency-banner">
+    ⚠️ This tool is for guidance only and does not replace clinical assessment.
+    For emergencies, call <strong>999</strong> or go to your nearest A&amp;E immediately.
+  </div>
+
+  <main>
+    <div class="chat-container">
+      <div class="info-card">
+        <strong>Welcome to the LGI Triage Assistant.</strong><br>
+        Please describe your symptoms in as much detail as possible — by typing or using
+        your voice. The assistant will ask a few follow-up questions before suggesting a
+        department and priority level.
+      </div>
+      <div class="messages" id="messages"></div>
+    </div>
+  </main>
+
+  <div class="input-area">
+    <div class="input-inner" id="inputInner">
+
+      <!-- Mode toggle (visible on first message only) -->
+      <div class="input-mode-toggle" id="modeToggle">
+        <button class="mode-btn active" id="btnTextMode" onclick="setMode('text')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M17 6H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+            <line x1="9" y1="9" x2="11" y2="9"/>
+          </svg>
+          Type
+        </button>
+        <button class="mode-btn" id="btnVoiceMode" onclick="setMode('voice')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <rect x="9" y="2" width="6" height="11" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+            <line x1="9" y1="22" x2="15" y2="22"/>
+          </svg>
+          Voice
+        </button>
+      </div>
+
+      <!-- Voice panel -->
+      <div class="voice-panel" id="voicePanel">
+        <div class="voice-unsupported" id="voiceUnsupported">
+          ⚠ Voice input is not supported in this browser. Please use Chrome or Edge.
+        </div>
+        <button class="mic-btn" id="micBtn" onclick="toggleRecording()">
+          <!-- Mic icon -->
+          <svg id="iconMic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="2" width="6" height="11" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+            <line x1="9" y1="22" x2="15" y2="22"/>
+          </svg>
+          <!-- Stop icon -->
+          <svg id="iconStop" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+          </svg>
+        </button>
+        <div class="voice-status" id="voiceStatus">Tap the microphone to start speaking</div>
+        <div class="voice-transcript" id="voiceTranscript"></div>
+        <div class="voice-actions" id="voiceActions">
+          <button class="btn-confirm" onclick="confirmVoice()">✓ Use this</button>
+          <button class="btn-rerecord" onclick="reRecord()">↺ Re-record</button>
+        </div>
+      </div>
+
+      <!-- Text row (always shown for follow-ups, toggled for first message) -->
+      <div class="text-row" id="textRow">
+        <textarea id="userInput" placeholder="Describe your symptoms here…" rows="1"></textarea>
+        <button id="resetBtn" onclick="resetChat()">New</button>
+        <button id="sendBtn" onclick="sendMessage()">Send</button>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+  // State
+  let fullTranscript      = "";
+  let collected           = {};
+  let conversationHistory = [];
+  let done                = false;
+  let firstMessageSent    = false;
+  let currentMode         = "text";   // "text" | "voice"
+
+  // Speech recognition setup
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition  = null;
+  let isRecording  = false;
+  let voiceText    = "";
+
+  function initSpeechRecognition() {
+    if (!SpeechRecognition) {
+      document.getElementById("voiceUnsupported").style.display = "block";
+      document.getElementById("micBtn").disabled = true;
+      return;
+    }
+    recognition = new SpeechRecognition();
+    recognition.continuous     = true;
+    recognition.interimResults = true;
+    recognition.lang           = "en-GB";
+
+    recognition.onresult = (e) => {
+      let interim = "";
+      let final   = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += t;
+        else interim += t;
+      }
+      voiceText = (voiceText + final).trim();
+      const display = voiceText + (interim ? " " + interim : "");
+      const el = document.getElementById("voiceTranscript");
+      el.textContent = display || "";
+      el.className   = "voice-transcript" + (display ? " has-text" : "");
+    };
+
+    recognition.onerror = (e) => {
+      console.warn("Speech error:", e.error);
+      if (e.error === "not-allowed") {
+        document.getElementById("voiceStatus").textContent = "Microphone access denied. Please allow microphone access and try again.";
+      }
+      stopRecording();
+    };
+
+    recognition.onend = () => {
+      if (isRecording) {
+        // Restart if still supposed to be recording (Chrome stops after silence)
+        recognition.start();
+      }
+    };
+  }
+
+  initSpeechRecognition();
+
+  // Mode toggle
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById("btnTextMode").classList.toggle("active", mode === "text");
+    document.getElementById("btnVoiceMode").classList.toggle("active", mode === "voice");
+    document.getElementById("voicePanel").classList.toggle("active", mode === "voice");
+    document.getElementById("textRow").style.display  = mode === "text" ? "flex" : "none";
+    if (mode === "voice") resetVoiceUI();
+    else if (isRecording) stopRecording();
+  }
+
+  // Recording controls
+  function toggleRecording() {
+    if (isRecording) stopRecording();
+    else startRecording();
+  }
+
+  function startRecording() {
+    if (!recognition) return;
+    voiceText = "";
+    document.getElementById("voiceTranscript").textContent = "";
+    document.getElementById("voiceTranscript").className   = "voice-transcript";
+    document.getElementById("voiceActions").className      = "voice-actions";
+    isRecording = true;
+
+    const micBtn = document.getElementById("micBtn");
+    micBtn.classList.add("recording");
+    document.getElementById("iconMic").style.display  = "none";
+    document.getElementById("iconStop").style.display = "block";
+    document.getElementById("voiceStatus").textContent = "Listening… speak clearly";
+    document.getElementById("voiceStatus").className   = "voice-status recording";
+
+    try { recognition.start(); }
+    catch(e) { /* already started */ }
+  }
+
+  function stopRecording() {
+    isRecording = false;
+    if (recognition) { try { recognition.stop(); } catch(e) {} }
+
+    const micBtn = document.getElementById("micBtn");
+    micBtn.classList.remove("recording");
+    document.getElementById("iconMic").style.display  = "block";
+    document.getElementById("iconStop").style.display = "none";
+
+    if (voiceText.trim()) {
+      document.getElementById("voiceStatus").textContent = "Done! Review your words below.";
+      document.getElementById("voiceStatus").className   = "voice-status";
+      document.getElementById("voiceActions").className  = "voice-actions visible";
+    } else {
+      document.getElementById("voiceStatus").textContent = "Nothing recorded. Tap the microphone to try again.";
+      document.getElementById("voiceStatus").className   = "voice-status";
+    }
+  }
+
+  function confirmVoice() {
+    const text = voiceText.trim();
+    if (!text) return;
+    // Treat confirmed voice input exactly like typed text
+    document.getElementById("userInput").value = text;
+    sendMessage();
+  }
+
+  function reRecord() {
+    resetVoiceUI();
+  }
+
+  function resetVoiceUI() {
+    if (isRecording) stopRecording();
+    voiceText = "";
+    document.getElementById("voiceTranscript").textContent = "";
+    document.getElementById("voiceTranscript").className   = "voice-transcript";
+    document.getElementById("voiceActions").className      = "voice-actions";
+    document.getElementById("voiceStatus").textContent     = "Tap the microphone to start speaking";
+    document.getElementById("voiceStatus").className       = "voice-status";
+    const micBtn = document.getElementById("micBtn");
+    micBtn.classList.remove("recording");
+    document.getElementById("iconMic").style.display  = "block";
+    document.getElementById("iconStop").style.display = "none";
+  }
+
+  // DOM helpers
+  const messagesEl = document.getElementById("messages");
+  const inputEl    = document.getElementById("userInput");
+  const sendBtn    = document.getElementById("sendBtn");
+
+  function appendMsg(role, text) {
+    const wrap  = document.createElement("div");
+    wrap.className = `msg ${role}`;
+    const label = document.createElement("div");
+    label.className   = "msg-label";
+    label.textContent = role === "assistant" ? "LGI Triage" : "You";
+    const body  = document.createElement("div");
+    body.textContent  = text;
+    wrap.appendChild(label);
+    wrap.appendChild(body);
+    messagesEl.appendChild(wrap);
+    wrap.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  function showTyping() {
+    const el  = document.createElement("div");
+    el.className = "typing";
+    el.id        = "typing";
+    el.innerHTML = "<span></span><span></span><span></span>";
+    messagesEl.appendChild(el);
+    el.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  function removeTyping() {
+    const el = document.getElementById("typing");
+    if (el) el.remove();
+  }
+
+  function showResult(data) {
+    const card = document.createElement("div");
+    card.className = "result-card";
+    card.innerHTML = `
+      <div class="result-header ${data.colour}">
+        <div class="mts-badge">${data.colour} Priority</div>
+        <h2>${data.mts_level}</h2>
+        <p>${data.description}</p>
+      </div>
+      <div class="result-body">
+        <div class="result-row">
+          <span class="label">Department</span>
+          <span class="value">${data.department}</span>
+        </div>
+        <div class="result-row">
+          <span class="label">Priority</span>
+          <span class="value">${data.mts_level}</span>
+        </div>
+        ${data.demo_mode ? '<div class="demo-badge">⚠ Demo mode — BERT model not loaded</div>' : ''}
+        ${data.note ? `<div class="demo-badge">ℹ ${data.note}</div>` : ''}
+        <div class="result-disclaimer">
+          This assessment is for guidance only and must be reviewed by a qualified
+          healthcare professional. If your condition worsens, go to A&amp;E or call 999.
+        </div>
+      </div>`;
+    messagesEl.appendChild(card);
+    card.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  // Auto-resize textarea
+  inputEl.addEventListener("input", () => {
+    inputEl.style.height = "auto";
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + "px";
+  });
+
+  inputEl.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  // Send message
+  async function sendMessage() {
+    if (done) return;
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    appendMsg("user", text);
+    inputEl.value = "";
+    inputEl.style.height = "auto";
+    sendBtn.disabled = true;
+
+    fullTranscript += (fullTranscript ? " " : "") + text;
+
+    if (conversationHistory.length > 0) {
+      conversationHistory.push({ role: "user", content: text });
+    }
+
+    // After first message: lock into text-only mode for follow-ups
+    if (!firstMessageSent) {
+      firstMessageSent = true;
+      if (isRecording) stopRecording();
+      document.getElementById("inputInner").classList.add("follow-up");
+      // Always show text row for follow-ups
+      document.getElementById("textRow").style.display = "flex";
+    }
+
+    showTyping();
+
+    try {
+      const res  = await fetch("/assess", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: fullTranscript, collected, history: conversationHistory })
+      });
+      const data = await res.json();
+      removeTyping();
+
+      if (data.collected) collected           = data.collected;
+      if (data.history)   conversationHistory = data.history;
+
+      if (data.status === "needs_info") {
+        appendMsg("assistant", data.question);
+      } else if (data.status === "complete") {
+        appendMsg("assistant", "Based on what you've told me, here is your triage assessment:");
+        showResult(data);
+        done = true;
+        inputEl.disabled    = true;
+        inputEl.placeholder = "Assessment complete. Press 'New' to start again.";
+      } else if (data.error) {
+        appendMsg("assistant", `Sorry, something went wrong: ${data.error}`);
+      }
+
+    } catch (err) {
+      removeTyping();
+      appendMsg("assistant", "Sorry, I couldn't connect to the server. Please try again.");
+    }
+
+    sendBtn.disabled = false;
+    if (!done) inputEl.focus();
+  }
+
+  // Reset
+  function resetChat() {
+    fullTranscript      = "";
+    collected           = {};
+    conversationHistory = [];
+    done                = false;
+    firstMessageSent    = false;
+
+    messagesEl.innerHTML    = "";
+    inputEl.disabled        = false;
+    inputEl.placeholder     = "Describe your symptoms here…";
+
+    // Restore mode toggle
+    document.getElementById("inputInner").classList.remove("follow-up");
+    setMode("text");
+
+    appendMsg("assistant", "Hello, I'm the LGI Triage Assistant. Please describe your symptoms and I'll ask a few questions to help direct you to the right department.");
+    inputEl.focus();
+  }
+
+  // Welcome message
+  window.addEventListener("load", () => {
+    appendMsg("assistant", "Hello, I'm the LGI Triage Assistant. Please describe your symptoms using text or voice, and I'll ask a few questions to help direct you to the right department.");
+    inputEl.focus();
+  });
+</script>
+</body>
+</html>
